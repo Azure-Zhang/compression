@@ -88,6 +88,19 @@ void arch_set_locale (void)
     ASSERTWD0 (setlocale (LC_NUMERIC, flag.is_windows ? "english" : "en_US.UTF-8"), "Warning: failed to setlocale of LC_NUMERIC"); // printf's %f uses '.' as the decimal separator (not ',')
 }
 
+static bool arch_is_wsl (void)
+{
+#ifdef __linux__    
+    struct utsname uts = {};
+    if (uname(&uts)) return false; // uname doesn't work
+
+    return (strstr (uts.release, "Microsoft"/*WSL1*/) || strstr (uts.release, "microsoft-standard"/*WSL2*/));
+
+#else
+    return false;
+#endif
+}
+
 void arch_initialize (rom argv0)
 {
     clock_gettime(CLOCK_REALTIME, &execution_start_time);
@@ -131,6 +144,8 @@ void arch_initialize (rom argv0)
 
     arch_add_to_windows_path (argv0);
 #endif
+
+    flag.is_wsl = arch_is_wsl();
 }
 
 rom arch_get_endianity (void)
@@ -240,19 +255,6 @@ rom arch_get_user_host (void)
     }
 
     return user_host;
-}
-
-bool arch_is_wsl (void)
-{
-#ifdef __linux__    
-    struct utsname uts = {};
-    if (uname(&uts)) return false; // uname doesn't work
-
-    return (strstr (uts.release, "Microsoft"/*WSL1*/) || strstr (uts.release, "microsoft-standard"/*WSL2*/));
-
-#else
-    return false;
-#endif
 }
 
 // good summary here: https://stackoverflow.com/questions/1023306/finding-current-executables-path-without-proc-self-exe/1024937#1024937

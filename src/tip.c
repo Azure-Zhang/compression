@@ -26,6 +26,8 @@ void tip_print (void)
 {
     #define E(dt) dt_encountered[DT_##dt]
 
+    if (flag.no_tip) return; // protect from spamming the user with more than one tip
+
     rom notice = license_print_default_notice ();
 
     if (!is_info_stream_terminal) {
@@ -81,4 +83,7 @@ void tip_print (void)
         valid_tips[n++] = "Tip: to achieve the best compression, use --best";
 
     iprintf ("\n%s\n", valid_tips[time(0) % n]); // "randomly" select one of the valid tips
+
+    flag.no_tip = true;
 }
+

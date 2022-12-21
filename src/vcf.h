@@ -275,6 +275,10 @@
 #pragma GENDICT INFO_DR2=DTYPE_1=DR2       // <ID=DR2,Number=1,Type=Float,Description="Dosage R-Squared: estimated squared correlation between estimated REF dose [P(RA) + 2*P(RR)] and true REF dose">
 #pragma GENDICT INFO_IMP=DTYPE_1=IMP       // <ID=IMP,Number=0,Type=Flag,Description="Imputed marker">
 
+// Genocove loimpute fields: https://docs.gencove.com/main/faq/
+#pragma GENDICT FORMAT_RC=DTYPE_2=RC       // ##FORMAT=<ID=RC,Number=1,Type=Integer,Description="Count of reads with REF allele">
+#pragma GENDICT FORMAT_AC=DTYPE_2=AC       // ##FORMAT=<ID=AC,Number=1,Type=Integer,Description="Count of reads with ALT allele">
+
 // Genozip INFO fields
 #pragma GENDICT INFO_LUFT=DTYPE_1=LUFT
 #pragma GENDICT INFO_PRIM=DTYPE_1=PRIM

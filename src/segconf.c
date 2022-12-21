@@ -118,9 +118,9 @@ static void segconf_set_vb_size (ConstVBlockP vb, uint64_t curr_vb_size)
         if (!flag.best && est_seggable_size && global_max_threads > 1)
             segconf.vb_size = MIN_(segconf.vb_size, MAX_(VBLOCK_MEMORY_MIN_SMALL, est_seggable_size / global_max_threads));
 
-        // on Windows (inc. WSL2) and Mac - which tend to have less memory in typical configurations, warn if we need a lot
+        // on Windows (inc. WSL) and Mac - which tend to have less memory in typical configurations, warn if we need a lot
         // (note: if user sets --vblock, we won't get here)
-        if (flag.is_windows || flag.is_mac || strstr (arch_get_os(), "microsoft-standard") /* WSL2 */) {
+        if (flag.is_windows || flag.is_mac || flag.is_wsl) {
             segconf.vb_size = MIN_(segconf.vb_size, 32 << 20); // limit to 32MB per VB unless users says otherwise to protect OS UI interactivity 
 
             int concurrent_vbs = 1 + (est_seggable_size ? MIN_(1+ est_seggable_size / segconf.vb_size, global_max_threads) : global_max_threads);

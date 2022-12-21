@@ -36,8 +36,8 @@
 #include "version.h"
 
 // globals
-File *z_file   = NULL;
-File *txt_file = NULL;
+FileP z_file   = NULL;
+FileP txt_file = NULL;
 DataType last_z_dt = DT_NONE;
 
 static StreamP input_decompressor = NULL; // bcftools or xz, unzip or samtools - only one at a time

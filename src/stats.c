@@ -415,6 +415,8 @@ static void stats_output_file_metadata (void)
             REPORT_VBs;
             REPORT_QNAME;
             REPORT_KRAKEN;
+            if (segconf.r1_or_r2) bufprintf (evb, &features, "R1_or_R2=R%d;", (segconf.r1_or_r2 == PAIR_READ_1) ? 1 : 2);
+
             break;
 
         case DT_FASTA:
@@ -790,7 +792,9 @@ void stats_generate (void) // specific section, or COMP_NONE if for the entire f
              dt_name (z_file->data_type), str_int_commas (all_txt_len).s, str_int_commas (txt_size).s, 
              (int32_t)(txt_size - all_txt_len)); 
 
-    if (flag.show_stats_comp_i == COMP_NONE) {
+    if (flag.show_stats_comp_i == COMP_NONE && 
+        (flag.show_stats || z_file->disk_so_far > (1<<20))) { // write stats only if z_file is at least 1MB or if requested explicitly, otherwise ~4KB of stats data too much overhead) {
+        
         zfile_compress_section_data (evb, SEC_STATS, &stats);
         zfile_compress_section_data (evb, SEC_STATS, &STATS);
 
@@ -816,7 +820,7 @@ void stats_display (void)
 
     buf_print (buf , false);
 
-    if (z_file->disk_size < (1<<20) && command==ZIP)  // no need to print this note if total size > 1MB, as the ~2K of overhead is rounded off anyway
+    if (stats.count && z_file->disk_size < (1<<20) && command==ZIP)  // no need to print this note if z size > 1MB, as the 2-4KB of overhead is rounded off anyway
         // stats text doesn't include SEC_STATS and SEC_GENOZIP_HEADER - the last 3 sections in the file - since stats text is generated before these sections are compressed
         iprintf ("\nNote: ZIP total file size excludes overhead of %s\n", str_size (stats.count).s);
 

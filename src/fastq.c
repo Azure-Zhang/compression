@@ -6,6 +6,8 @@
 //   WARNING: Genozip is proprietary, not open source software. Modifying the source code is strictly prohibited
 //   and subject to penalties specified in the license.
 
+#include <dirent.h>
+#include <libgen.h>
 #include "fastq.h"
 #include "vblock.h"
 #include "seg.h"
@@ -29,6 +31,7 @@
 #include "kraken.h"
 #include "bases_filter.h"
 #include "qname.h"
+#include "tip.h"
 
 #define dict_id_is_fastq_desc_sf dict_id_is_type_1
 #define dict_id_fastq_desc_sf dict_id_type_1
@@ -194,13 +197,68 @@ static void fastq_get_optimized_desc_read_name (VBlockFASTQ *vb)
     vb->optimized_desc[vb->optimized_desc_len-1] = '.';
 }
 
+// test if an R2 file has been compressed after R1 without --pair - and produce tip if so
+static void fastq_tip_if_should_be_pair (void)
+{
+    if (flag.pair || !txt_file->name || !flag.reference || txt_file->redirected) return;
+
+    char dir_name_buf[strlen (txt_file->name) + 1];
+    strcpy (dir_name_buf, txt_file->name);    
+    rom dir_name = dirname (dir_name_buf); // destructive - might replace the last slash with 0
+
+    bool is_cd = dir_name[0] == '.' && dir_name[1] == 0;
+
+    DIR *dir = opendir (dir_name);
+    if (!dir) return; // can't open directory
+
+    rom bn = txt_file->basename; // basename
+    int bn_len = strlen (bn);
+
+    // find R2 file assuming we are R1, if there is one
+    struct dirent *ent;
+    while ((ent = readdir(dir))) {
+        if (strlen (ent->d_name) != bn_len) continue; 
+
+        int mismatches = 0, mm_i=0;
+        rom dn = ent->d_name;
+        for (int i=0; i < bn_len && mismatches < 2; i++)
+            if (dn[i] != bn[i]) {
+                mismatches++;
+                mm_i = i;
+            }
+        
+        // case: we found another genozip file with the same name as txt_file, except for '1'⇄'2' switch
+        if (mismatches == 1 && dn[mm_i] == '2' && bn[mm_i] == '1') {
+
+            char other_bn[bn_len + 1];
+            strcpy (other_bn, bn);
+            other_bn[mm_i] = '2';
+
+            TIP ("Using --pair to compress paired-end FASTQs can reduce the compressed file's size by 10%%. E.g.:\n"
+                 "genozip --reference %s --pair %s %s%s%s\n",
+                  ref_get_filename (gref), txt_name, (is_cd ? "" : dir_name), (is_cd ? "" : "/"), other_bn);
+
+            segconf.r1_or_r2 = PAIR_READ_1;
+            break;
+        } 
+
+        else if (mismatches == 1 && dn[mm_i] == '1' && bn[mm_i] == '2') {
+            segconf.r1_or_r2 = PAIR_READ_2;
+            break;
+        }
+    }
+
+    closedir(dir);    
+}
+
 // called by main thread at the beginning of zipping this file
 void fastq_zip_initialize (void)
 {
     if (!flag.reference && !txt_file->redirected && !flag.multiseq)
-        WARN_ONCE ("Tip: compressing a FASTQ file using a reference file can reduce the compressed file's size by 20%%-60%%.\nUse: \"genozip --reference <ref-file> %s\". ref-file may be a FASTA file or a .ref.genozip file.\n",
-                   txt_file->name);
+        TIP ("compressing a FASTQ file using a reference file can reduce the compressed file's size by 20%%-60%%.\nUse: \"genozip --reference <ref-file> %s\". ref-file may be a FASTA file or a .ref.genozip file.\n", txt_file->name);
 
+    fastq_tip_if_should_be_pair();
+    
     // reset lcodec for STRAND and GPOS, as these may change between PAIR_1 and PAIR_2 files
     ZCTX(FASTQ_STRAND)->lcodec = CODEC_UNKNOWN;
     ZCTX(FASTQ_GPOS  )->lcodec = CODEC_UNKNOWN;
@@ -213,6 +271,12 @@ void fastq_zip_initialize (void)
         ctx_populate_zf_ctx_from_contigs (gref, FASTQ_CONTIG, ref_get_ctgs (gref)); 
 
     qname_zip_initialize (FASTQ_DESC);
+}
+
+
+// called by main thread after each txt file compressing is done
+void fastq_zip_finalize (bool is_last_user_txt_file)
+{
 }
 
 // called by zfile_compress_genozip_header to set FlagsGenozipHeader.dt_specific

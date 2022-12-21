@@ -782,6 +782,30 @@ uint32_t str_remove_whitespace (STRp(in), char *out)
     return out_len;
 }
 
+// in-place removal of flanking whitespace from a null-terminated string
+void str_trim (STRe(str))
+{
+    // remove leading whitespave
+    int i=0; for (; i < *str_len; i++)
+        if (str[i] != ' ' && str[i] != '\t' && str[i] != '\n' && str[i] != '\r')
+            break;
+
+    if (i) {
+        *str_len -= i;
+        memmove (str, str+i, *str_len);
+    }
+
+    // remove trailing whitespace
+    for (i = *str_len - 1; i >= 0; i--)
+        if (str[i] != ' ' && str[i] != '\t' && str[i] != '\n' && str[i] != '\r') 
+            break;
+
+    if (i < *str_len - 1) {
+        *str_len = i+1;
+        str[*str_len] = '\0';
+    }
+}
+
 // splits a string with up to (max_items-1) separators (doesn't need to be nul-terminated) to up to or exactly max_items integers
 // returns the actual number of items, or 0 is unsuccessful
 uint32_t str_split_ints_do (STRp(str), uint32_t max_items, char sep, bool exactly,
@@ -941,17 +965,13 @@ bool str_query_user_yn (rom query, DefAnswerType def_answer)
              def_answer==QDEF_NO ?"[":"",  def_answer==QDEF_NO ?"]":"");
 
     char y_n[32];
-    str_query_user (query_str, y_n, sizeof(y_n), str_verify_y_n, def_answer==QDEF_YES ? "Y" : def_answer==QDEF_NO ? "N" : 0);
+    str_query_user (query_str, y_n, sizeof(y_n), def_answer != QDEF_NONE,
+                    str_verify_y_n, def_answer==QDEF_YES ? "Y" : def_answer==QDEF_NO ? "N" : 0);
 
     return y_n[0] == 'Y';
 }
 
-bool str_verify_not_empty (char *response, uint32_t len, rom unused)
-{ 
-    return !!len;
-}
-
-void str_query_user (rom query, char *response, uint32_t response_size, 
+void str_query_user (rom query, char *response, uint32_t response_size, bool allow_empty, 
                      ResponseVerifier verifier, rom verifier_param)
 {
     uint32_t len;
@@ -960,10 +980,11 @@ void str_query_user (rom query, char *response, uint32_t response_size,
 
         // Linux: in case of non-Latin, fgets doesn't handle backspace well - not completely removing the multi-byte character from the string (bug 593)
         // Windows (MingW): the string is terminated before the first non-Latin character on bash terminal and only ???? on Powershell and Command (bug 594)
-        fgets (response, response_size, stdin); 
-        len = strlen (response);
-        if (len && (response[len-1] == '\n')) response[--len] = '\0';         
-        if (len && (response[len-1] == '\r')) response[--len] = '\0'; // in Windows, lines are terminated by \r\n
+        do {
+            fgets (response, response_size, stdin); 
+            len = strlen (response);
+            str_trim (response, &len);
+        } while (!len && !allow_empty);
 
     } while (verifier && !verifier (response, len, verifier_param));
 }

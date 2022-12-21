@@ -76,16 +76,14 @@ void main_exit (bool show_stack, bool is_error)
         ref_create_cache_join (prim_ref, false);
         refhash_create_cache_join(false);
         
-        bool printed = version_print_notice_if_has_newer();
+        version_print_notice_if_has_newer();
 
         if (flag.show_time && !flag.show_time[0]) { // show-time without the optional parameter 
             profiler_add (evb);
             profiler_print_report();
         }
 
-        else if (!printed && !flag.quiet && !getenv ("GENOZIP_TEST") && 
-            !flag.show_bam && !flag.biopsy && flag.biopsy_line.line_i == NO_LINE &&
-            ((IS_ZIP && !tip_printed) || flag.check_latest/*PIZ - test after compress*/))
+        else if (IS_ZIP || flag.check_latest/*PIZ - test after compress*/)
             tip_print();
     }
 
@@ -287,7 +285,7 @@ static void main_test_after_genozip (rom z_filename, DataType z_dt, bool is_last
 
     // On Windows and Mac that usually have limited memory, if ZIP consumed more than 2GB, free memory before PIZ. 
     // Note: on Windows, freeing memory takes considerable time.
-    if ((flag.is_windows || flag.is_mac || arch_is_wsl()) && buf_get_memory_usage () > (1ULL<<31)) {
+    if ((flag.is_windows || flag.is_mac || flag.is_wsl) && buf_get_memory_usage () > (1ULL<<31)) {
         ref_destroy_reference (gref, true); // on Windows I observed a race condition: if we unmap mapped memory here, and remap it in the test process, and the system is very slow due to low memory, then "MapViewOfFile" in the test processs will get "Access is Denied". That's why destroy_only_if_not_mmap=true.
         ref_destroy_reference (prim_ref, true); 
         refhash_destroy (true);
@@ -324,6 +322,7 @@ static void main_test_after_genozip (rom z_filename, DataType z_dt, bool is_last
                                       flag.verify_codec  ? "--verify-codec"  : SKIP_ARG,
                                       flag.debug_lines   ? "--debug-lines"   : SKIP_ARG,
                                       flag.show_buddy    ? "--show-buddy"    : SKIP_ARG,
+                                      flag.no_tip        ? "--no-tip"        : SKIP_ARG,
                                       flag.debug_latest  ? "--debug-latest"  : SKIP_ARG,
                                       is_last_txt_file && !flag.debug ? "--check-latest"       : SKIP_ARG,
                                       IS_REF_EXTERNAL && !is_chain    ? "--reference"          : SKIP_ARG, // normal pizzing of a chain file doesn't require a reference
@@ -370,6 +369,7 @@ static void main_test_after_genozip (rom z_filename, DataType z_dt, bool is_last
         if (flag.verify_codec)  argv[argc++] = "--verify-codec";
         if (flag.debug_lines)   argv[argc++] = "--debug-lines";
         if (flag.show_buddy)    argv[argc++] = "--show-buddy";
+        if (flag.no_tip)        argv[argc++] = "--no-tip";
         if (flag.debug_latest)  argv[argc++] = "--debug-latest";
         if (is_last_txt_file && !flag.debug) 
                                 argv[argc++] = "--check-latest";
@@ -476,6 +476,8 @@ static void main_genozip (rom txt_filename,
 
         file_close (&z_file, false, !is_last_user_txt_file); 
 
+        license_one_file_compressed();
+
         // test the compression, if the user requested --test
         if (flag.test) 
             main_test_after_genozip (z_filename, z_dt, is_last_user_txt_file, is_chain);
@@ -504,10 +506,12 @@ static void main_genozip (rom txt_filename,
 done: {
     SAVE_FLAG (data_modified); // propagate up
     SAVE_FLAG (aligner_available);
+    SAVE_FLAG (no_tip);
     RESTORE_FLAGS;    
 
     if (flag.bind) RESTORE_FLAG (data_modified); 
     RESTORE_FLAG (aligner_available);
+    RESTORE_FLAG (no_tip);
 } }
 
 static inline DataType main_get_file_dt (rom filename)
@@ -660,7 +664,7 @@ static void set_exe_type (rom argv0)
 
     FREE (bn);
 }
-
+#include "md5.h"
 int main (int argc, char **argv)
 {    
     MAIN0 ("Starting main");
@@ -744,7 +748,7 @@ int main (int argc, char **argv)
                 "invalid argument of --threads: \"%s\". Expecting an integer between 1 and %u.", flag.threads_str, MAX_GLOBAL_MAX_THREADS);
 
     else global_max_threads = MIN_(MAX_GLOBAL_MAX_THREADS,
-                                   ((flag.is_windows || flag.is_mac || arch_is_wsl()) 
+                                   ((flag.is_windows || flag.is_mac || flag.is_wsl) 
                                         ? ((float)arch_get_num_cores() * 0.75)    // under-subscribe on Windows / Mac to maintain UI interactivity
                                         : ((float)arch_get_num_cores() * 1.1 ))); // over-subscribe to keep all cores busy even when some threads are waiting on mutex or join
 

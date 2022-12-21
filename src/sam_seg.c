@@ -27,6 +27,7 @@
 #include "qname.h"
 #include "lookback.h"
 #include "gencomp.h"
+#include "tip.h"
 #include "libdeflate/libdeflate.h"
 
 typedef enum { QNAME, FLAG, RNAME, POS, MAPQ, CIGAR, RNEXT, PNEXT, TLEN, SEQ, QUAL, AUX } SamFields __attribute__((unused)); // quick way to define constants
@@ -74,8 +75,8 @@ void sam_zip_free_end_of_z (void)
 void sam_zip_initialize (void)
 {
     if (flag.reference == REF_INTERNAL && !txt_file->redirected)
-        WARN_ONCE ("Tip: compressing a %s file using a reference file can reduce the size by 7%%-30%%%s.\nUse: \"genozip --reference <ref-file> %s\". ref-file may be a FASTA file or a .ref.genozip file.\n",
-                   dt_name (txt_file->data_type), MP(UNKNOWN) ? " (even for unaligned files)" : "", txt_file->name);
+        TIP ("compressing a %s file using a reference file can reduce the size by 7%%-30%%%s.\nUse: \"genozip --reference <ref-file> %s\". ref-file may be a FASTA file or a .ref.genozip file.\n",
+             dt_name (txt_file->data_type), MP(UNKNOWN) ? " (even for unaligned files)" : "", txt_file->name);
 
     bool has_hdr_contigs = sam_hdr_contigs && sam_hdr_contigs->contigs.len;
 

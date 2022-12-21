@@ -49,6 +49,9 @@ else
 
 endif 
 
+DEV_SRC = ../../genozip/src
+PROD_SRC = ../../genozip-prod/src
+
 SRC_DIRS = zlib bzlib lzma bsc libdeflate htscodecs compatibility
 
 MY_SRCS = genozip.c genols.c context.c container.c strings.c stats.c arch.c license.c tip.c      				\
@@ -88,7 +91,7 @@ DEFLATE_SRCS = libdeflate/deflate_compress.c libdeflate/deflate_decompress.c lib
 
 CONDA_DEVS = Makefile .gitignore 
 
-CONDA_DOCS = LICENSE.txt AUTHORS README.md
+CONDA_DOCS = ../LICENSE.txt ../AUTHORS ../README.md
 
 CONDA_INCS = dict_id_gen.h aes.h dispatcher.h optimize.h profiler.h dict_id.h txtfile.h zip.h bits.h progress.h website.h \
              endianness.h md5.h sections.h text_help.h strings.h hash.h stream.h url.h flags.h segconf.h biopsy.h \
@@ -121,7 +124,7 @@ CONDA_INCS = dict_id_gen.h aes.h dispatcher.h optimize.h profiler.h dict_id.h tx
 
 LINUXDIR = genozip-linux-x86_64 # directory for creating the Linux binaries distribution
 
-DOCS = installers
+INSTALLERS = ../installers
 
 ifeq ($(CC),cl) # Microsoft Visual C
 	$(error Only the gcc compiler is currently supported)
@@ -171,7 +174,7 @@ opt   : CFLAGS += -g $(OPTFLAGS) -DDEBUG -DDISTRIBUTION=\"opt\"
 opt   : $(OBJDIR) $(OPT_EXECUTABLES)
 
 docker : CFLAGS += $(OPTFLAGS) -DDISTRIBUTION=\"Docker\"
-docker : $(OBJDIR) $(EXECUTABLES) LICENSE.txt
+docker : $(OBJDIR) $(EXECUTABLES) ../LICENSE.txt
 
 -include $(DEPS)
 
@@ -244,7 +247,7 @@ genounzip-opt$(EXE) genocat-opt$(EXE) genols-opt$(EXE): genozip-opt$(EXE)
 	@rm -f $@ 
 	@ln $^ $@
 
-LICENSE.txt: text_license.h version.h # not dependent on genozip.exe, so we don't generate it every compilation
+../LICENSE.txt: text_license.h version.h # not dependent on genozip.exe, so we don't generate it every compilation
 	@make -j genozip$(EXE) # recursive call to make genozip.exe with the latest version
 	@echo Generating $@
 	@./genozip$(EXE) --license=100 --force > $@
@@ -270,8 +273,8 @@ SH_VERIFY_ALL_COMMITTED = (( `git status |grep 'modified\|Untracked files'|grep 
 test:
 	@cat test.sh | tr -d "\r" | bash -
 
-clean-docs:
-	@rm -fR $(DOCS)/*
+clean-installers:
+	@rm -fR $(INSTALLERS)/*
 
 clean-debug:
 	@echo Cleaning up debug
@@ -293,23 +296,23 @@ clean-opt:
 clean-test:
 	@rm -f private/test/*.good private/test/*.bad private/test/*.local private/test/*.b250 private/test/tmp/* private/test/*.DEPN private/test/back-compat/*/*.bad
 
-clean: clean-docs clean-test
+clean: clean-installers clean-test
 	@echo Cleaning up
 	@rm -f $(DEPS) $(filter-out LICENSE.txt,$(WINDOWS_INSTALLER_OBJS)) *.d .archive.tar.gz *.stackdump $(EXECUTABLES) $(OPT_EXECUTABLES) $(DEBUG_EXECUTABLES) 
 	@rm -f *.S *.good *.bad data/*.good data/*.bad *.local genozip.threads-log.* *.b250 
 	@rm -R $(OBJDIR)
 	@mkdir $(OBJDIR) $(addprefix $(OBJDIR)/, $(SRC_DIRS))
 
-.PHONY: clean clean-debug clean-optimized clean-docs clean-distribution git-pull macos mac/.remote_mac_timestamp delete-arch testfiles test-backup genozip-linux-x86_64/clean genozip-prod genozip-prod.exe dict_id_gen$(EXE) push-build increment-version $(DOCS)/LICENSE.html
+.PHONY: clean clean-debug clean-optimized clean-installers clean-distribution git-pull macos mac/.remote_mac_timestamp delete-arch testfiles test-backup genozip-linux-x86_64/clean genozip-prod genozip-prod.exe dict_id_gen$(EXE) push-build increment-version $(INSTALLERS)/LICENSE.html rm_arch_o
 
 # builds prod for local OS
 genozip-prod$(EXE): 
 	@echo "building prod"
-	@(cd ../genozip-prod ; git stash ; git pull ; rm -Rf $(OBJDIR) ; make -j clean ; touch dict_id_gen.h ; make -j)
-	@cp ../genozip-prod/genozip$(EXE) ../genozip/genozip-prod$(EXE)
-	@cp ../genozip-prod/genozip$(EXE) ../genozip/private/releases/genozip-$(version)$(EXE)
-	@cp ../genozip-prod/genounzip$(EXE) ../genozip/genounzip-prod$(EXE)
-	@cp ../genozip-prod/genocat$(EXE) ../genozip/genocat-prod$(EXE)
+	@(cd $(PROD_SRC) ; git stash ; git pull ; rm -Rf $(OBJDIR) ; make -j clean ; touch dict_id_gen.h ; make -j)
+	@cp $(PROD_SRC)/genozip$(EXE) $(DEV_SRC)/genozip-prod$(EXE)
+	@cp $(PROD_SRC)/genozip$(EXE) $(DEV_SRC)/private/releases/genozip-$(version)$(EXE)
+	@cp $(PROD_SRC)/genounzip$(EXE) $(DEV_SRC)/genounzip-prod$(EXE)
+	@cp $(PROD_SRC)/genocat$(EXE) $(DEV_SRC)/genocat-prod$(EXE)
 
 # currently, I build for conda from my Windows machine so I don't bother supporting other platforms
 ifeq ($(OS),Windows_NT)
@@ -333,7 +336,7 @@ decrement-version:
 	@echo "Remove tag: git push --delete origin genozip-a.b.c"
 	@echo "Change version.h to the last version that still has a tag"
 
-.archive.tar.gz : $(C_SRCS) $(CONDA_COMPATIBILITY_SRCS) $(CONDA_DEVS) $(CONDA_DOCS) $(CONDA_INCS) LICENSE.txt
+.archive.tar.gz : $(C_SRCS) $(CONDA_COMPATIBILITY_SRCS) $(CONDA_DEVS) $(CONDA_DOCS) $(CONDA_INCS) ../LICENSE.txt
 	@echo Creating github tag genozip-$(version) and archive
 	@$(SH_VERIFY_ALL_COMMITTED)
 	@git push > /dev/null
@@ -345,16 +348,16 @@ decrement-version:
 	@echo "2. Copy the notes for the version from RELEASE NOTES"
 	@echo "3. Update 'latest' release to new tag"
 
-conda/meta.yaml: conda/meta.template.yaml .archive.tar.gz README.md
+conda/meta.yaml: conda/meta.template.yaml .archive.tar.gz ../README.md
 	@echo "Generating conda/meta.yaml"
 	@bash conda/generate_meta.sh > $@
 
-conda/README.md: conda/README.template.md html-to-md.sed README.md
+conda/README.md: conda/README.template.md html-to-md.sed ../README.md
 	@echo "Generating conda/README.md"
 	@bash conda/generate_README.sh > $@
 
 #CONDA_RECIPE_DIR = ../staged-recipes/recipes/genozip # initial stage-recipes step, keeping here for future reference
-CONDA_FEEDSTOCK  = ../genozip-feedstock
+CONDA_FEEDSTOCK  = ../../genozip-feedstock
 CONDA_RECIPE_DIR = $(CONDA_FEEDSTOCK)/recipe
 
 # publish to conda-forge 
@@ -393,13 +396,16 @@ windows/LICENSE.for-installer.txt: genozip$(EXE) version.h
 	@(mkdir windows >& /dev/null ; exit 0)
 	@./genozip$(EXE) --license=60 --force > $@
 
-WINDOWS_INSTALLER_OBJS = windows/genozip.exe windows/genounzip.exe windows/genocat.exe windows/genols.exe windows/LICENSE.for-installer.txt LICENSE.txt
+rm_arch_o : 
+	@(rm -f $(OBJDIR)/arch.o >& /dev/null ; exit 0) # remove this arch.o which contains DISTRIBUTION
 
-$(DOCS)/LICENSE.html: genozip$(EXE)
+WINDOWS_INSTALLER_OBJS = windows/genozip.exe windows/genounzip.exe windows/genocat.exe windows/genols.exe windows/LICENSE.for-installer.txt ../LICENSE.txt
+
+$(INSTALLERS)/LICENSE.html: genozip$(EXE)
 	@./genozip$(EXE) --license=-5000 --force > $@
 
 # this must be run ONLY has part of "make distribution" or else versions will be out of sync
-$(DOCS)/genozip-installer.exe: $(WINDOWS_INSTALLER_OBJS) 
+$(INSTALLERS)/genozip-installer.exe: rm_arch_o $(WINDOWS_INSTALLER_OBJS) 
 	@(mkdir windows >& /dev/null ; exit 0)
 	@echo 'Creating Windows installer'
 	@echo 'WINDOWS: Using the UI:'
@@ -409,16 +415,15 @@ $(DOCS)/genozip-installer.exe: $(WINDOWS_INSTALLER_OBJS)
 	@echo '  (3) Click Save, then click Build'
 	@echo '  (4) Optionally: Click Yes, and copy the resulting files to releases/* and also c:\bin'	
 	@echo '  (5) Exit the UI (close the window)'
-	@if [ `basename ${PWD}` != genozip ] ; then cp $(WINDOWS_INSTALLER_OBJS) ../genozip/windows ; cp ../genozip/genozip-installer.ifp ../genozip-installer.ifp.save ; fi # so this works for genozip-prod too - because InstallForge uses absolute paths 
+	@if [ `cd ..; basename ${PWD}` != genozip ] ; then cp $(WINDOWS_INSTALLER_OBJS) $(DEV_SRC)/windows ; cp $(DEV_SRC)/genozip-installer.ifp $(DEV_SRC)/genozip-installer.ifp.save ; fi # so this works for genozip-prod too - because InstallForge uses absolute paths 
 	@(private/utils/InstallForge/InstallForge.exe ; exit 0)
-	@mv ../genozip/windows/genozip-installer.exe $(DOCS)  # so this works for genozip-prod too - because InstallForge uses absolute paths
 	@rm -f $(OBJDIR)/arch.o # remove this arch.o which contains DISTRIBUTION
-	@if [ `basename ${PWD}` != genozip ] ; then mv ../genozip/genozip-installer.ifp . ; mv ../genozip-installer.ifp.save ../genozip/genozip-installer.ifp ; fi # we always edit the version in the genozip dir
+	@if [ `cd ..; basename ${PWD}` != genozip ] ; then mv $(DEV_SRC)/genozip-installer.ifp . ; mv $(DEV_SRC)/genozip-installer.ifp.save $(DEV_SRC)/genozip-installer.ifp ; fi # we always edit the version in the genozip dir
 #	@(C:\\\\Program\\ Files\\ \\(x86\\)\\\\solicus\\\\InstallForge\\\\bin\\\\ifbuilderenvx86.exe ; exit 0)
 
-$(DOCS)/genozip-linux-x86_64.tar.build: genozip-linux-x86_64/LICENSE.txt 
+$(INSTALLERS)/genozip-linux-x86_64.tar.build: genozip-linux-x86_64/LICENSE.txt 
 	@(mkdir genozip-linux-x86_64 >& /dev/null ; exit 0)
-	@run-on-wsl.sh make $(DOCS)/genozip-linux-x86_64.tar # make -j doesn't work well on WSL - filesystem clock issues
+	@run-on-wsl.sh make $(INSTALLERS)/genozip-linux-x86_64.tar # make -j doesn't work well on WSL - filesystem clock issues
 
 mac/.remote_mac_timestamp: # to be run from Windows to build on a remote mac
 	@echo "Creating Mac installer"
@@ -429,7 +434,7 @@ mac/.remote_mac_timestamp: # to be run from Windows to build on a remote mac
 	@ssh `cat mac/.mac_ip_address` -l `cat mac/.mac_username`  "cd genozip ; echo "Pulling from git" ; git pull >& /dev/null ; make -j mac/.from_remote_timestamp" # pull before make as Makefile might have to be pulled
 	@touch $@
 
-BUILD_FILES = version.h genozip-installer.ifp LICENSE.txt Makefile
+BUILD_FILES = version.h genozip-installer.ifp ../LICENSE.txt Makefile
 
 BUILD_FILES_DOCS = genozip-installer.exe genozip-linux-x86_64.tar LICENSE.html
 
@@ -437,16 +442,16 @@ push-build:
 	@(git stage $(BUILD_FILES) ; exit 0) > /dev/null
 	@(git commit -m $(version) ; exit 0) > /dev/null
 	@git push > /dev/null
-	@(cd $(DOCS); git stage $(BUILD_FILES_DOCS) ; exit 0) > /dev/null
-	@(cd $(DOCS); git commit -m $(version) ; exit 0) > /dev/null
-	@(cd $(DOCS); git push) > /dev/null
+	@(cd $(INSTALLERS); git stage $(BUILD_FILES_DOCS) ; exit 0) > /dev/null
+	@(git commit -m $(version) ; exit 0) > /dev/null
+	@git push > /dev/null
 
-distribution: clean-distribution increment-version testfiles LICENSE.txt $(DOCS)/LICENSE.html $(DOCS)/genozip-linux-x86_64.tar.build $(DOCS)/genozip-installer.exe push-build conda/.conda-timestamp genozip-prod.exe genozip-prod
-	@(cd ../genozip-feedstock/ ; git pull)
+distribution: clean-distribution increment-version testfiles ../LICENSE.txt $(INSTALLERS)/LICENSE.html $(INSTALLERS)/genozip-linux-x86_64.tar.build $(INSTALLERS)/genozip-installer.exe push-build conda/.conda-timestamp genozip-prod.exe genozip-prod
+	@(cd $(CONDA_FEEDSTOCK) ; git pull)
 
-distribution-maintenance: clean-distribution increment-version LICENSE.txt testfiles $(DOCS)/genozip-linux-x86_64.tar.build $(DOCS)/genozip-installer.exe \
+distribution-maintenance: clean-distribution increment-version ../LICENSE.txt testfiles $(INSTALLERS)/genozip-linux-x86_64.tar.build $(INSTALLERS)/genozip-installer.exe \
                           push-build conda/.conda-timestamp genozip-prod.exe genozip-prod
-	@(cd ../genozip-feedstock/ ; git pull)
+	@(cd $(CONDA_FEEDSTOCK) ; git pull)
 
 test-backup: genozip.exe
 	@echo "Compressing test/ files for in preparation for backup (except cram and bcf)"
@@ -454,7 +459,7 @@ test-backup: genozip.exe
 	@(cd test; genozip.exe -f `ls -1d *|grep -v / |grep -v cram | grep -v bcf`)
 
 # license copied on Windows, not Linux due to file mode issues on NTFS causing git to think LICENSE.txt has changed
-genozip-linux-x86_64/LICENSE.txt: LICENSE.txt
+genozip-linux-x86_64/LICENSE.txt: ../LICENSE.txt
 	@echo Generating $@
 	@(mkdir genozip-linux-x86_64 >& /dev/null ; exit 0)
 	@cp -f $< $@
@@ -481,7 +486,7 @@ genozip-linux-x86_64/genounzip genozip-linux-x86_64/genocat genozip-linux-x86_64
 LINUX_TARGZ_OBJS = genozip-linux-x86_64/genozip genozip-linux-x86_64/genounzip genozip-linux-x86_64/genocat genozip-linux-x86_64/genols 
 
 # this must be run ONLY as part of "make distribution" or else versions will be out of sync
-$(DOCS)/genozip-linux-x86_64.tar: version.h genozip-linux-x86_64/clean $(LINUX_TARGZ_OBJS) # run on Linux by make-linux-from-windows.sh
+$(INSTALLERS)/genozip-linux-x86_64.tar: version.h genozip-linux-x86_64/clean $(LINUX_TARGZ_OBJS) # run on Linux by make-linux-from-windows.sh
 	@echo "Creating $@"
 	@tar cf $@ -z genozip-linux-x86_64
 	@rm -f $(OBJDIR)/arch.o # remove this arch.o which contains DISTRIBUTION
@@ -504,10 +509,10 @@ $(MACSCTDIR)/postinstall: mac/postinstall.template.sh
 $(MACLIBDIR)/uninstall.sh: mac/uninstall.template.sh
 	@sed -e "s/__VERSION__/$(version)/g" $< | sed -e "s/__FILES__/$(EXECUTABLES)/g" > $@ 
 
-$(MACRSSDIR)/README.html: README.md
+$(MACRSSDIR)/README.html: ../README.md
 	@cp -f $< $@
 
-$(MACRSSDIR)/LICENSE.txt: LICENSE.txt
+$(MACRSSDIR)/LICENSE.txt: ../LICENSE.txt
 	@cp -f $< $@
 
 $(MACLIBDIR)/%: %

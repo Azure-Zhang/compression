@@ -9,8 +9,6 @@
 #ifdef _WIN32
 #include <direct.h>
 #endif
-#include <stdlib.h>
-#include <stdio.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -54,6 +52,10 @@ static struct {
 
 static rom lic_types[NUM_LIC_TYPES] = { "", "Academic", "30-day evaluation", "Standard" }; // these strings are referred to in register.sh
 
+static void counter_reset (rom filename);
+static bool counter_increment (rom filename, long inc);
+static bool counter_has_exceeded (rom filename, uint32_t exceeded_this);
+
 static uint32_t license_calc_number (ConstBufferP license_data)
 {
     char data_no_ws[license_data->len];
@@ -96,7 +98,7 @@ void license_set_filename (rom filename)
     license_filename = filename;
 }
 
-static rom get_license_filename (bool create_folder_if_needed)
+static rom license_get_filename (bool create_folder_if_needed)
 {
     if (license_filename) return license_filename; // non-standard filename set with --licfile
 
@@ -135,8 +137,8 @@ static rom license_load_field (rom field, STRps(line))
 
 bool license_is_registered (void)
 {
-    rom filename = get_license_filename (true);
-    return  file_exists (filename);
+    rom filename = license_get_filename (true);
+    return file_exists (filename);
 }
 
 // IF YOU'RE CONSIDERING TAMPERING WITH THIS CODE TO BYPASS THE REGISTRTION, DON'T! It would be a violation of the license,
@@ -146,7 +148,7 @@ static void license_load (void)
 {
     if (rec.initialized) return;
 
-    rom filename = get_license_filename (true);
+    rom filename = license_get_filename (true);
     
     if (!file_exists (filename)) {
         license_register ();
@@ -179,8 +181,14 @@ static void license_load (void)
     data.len -= line_lens[n_lines-1] + 2;
     if (rec.license_num != license_calc_number (&data)) goto reregister;
 
+    #define BUY "To purchase a Standard License: " WEBSITE_BUY " or contact " EMAIL_SALES "\n"
     ASSINP0 (rec.lic_type != LIC_TYPE_EVAL || time(0)-rec.machine_time < (30*24*60*60),
-             "Your 30 evaluation period is over. Please contact sales@genozip.com to purchase a license or to request an extension of the evaluation period");
+             "You reached the end of the 30 evaluation period of Evaluation License.\n" BUY);
+
+    #define EVAL_NUM_FILES 100 // if updating, also update the web page get-genozip 
+    #define EVAL_NUM_FILES_STR "100"
+    ASSINP (!counter_has_exceeded (filename, EVAL_NUM_FILES),
+            "You reached the maximum number of files (%u) compressible with the Evaluation License.\n" BUY, EVAL_NUM_FILES);
 
     rec.initialized = true;
 
@@ -247,7 +255,7 @@ static bool license_submit (rom os, unsigned cores, rom endianity, rom user_host
     return success;
 }
 
-static bool license_verify_email (char *response, unsigned response_size, rom unused)
+static bool license_verify_email (STRc(response), rom unused)
 {
     rom domain = strchr (response, '@');
     if (!domain) return false;
@@ -275,6 +283,23 @@ static bool license_verify_email (char *response, unsigned response_size, rom un
     return true;
 }
 
+static bool license_verify_code (STRc(response), rom unused)
+{
+    if (response_len != 6 || !str_is_numeric (STRa(response))) {
+        fprintf (stderr, "\nExpecting a 6 digit number\n");
+        return false;
+    }
+
+    Digest digest = md5_do (STRa(response));
+
+    if (digest.bytes[0]!='2' && digest.bytes[1] >= 7) {
+        fprintf (stderr, "\nIncorrect verification code\n");
+        return false;
+    }
+
+    return true;
+}
+
 static bool license_is_consumer_email (rom email)
 {
     rom domain = strchr (email, '@') + 1;
@@ -285,12 +310,17 @@ static bool license_is_consumer_email (rom email)
     if (domain_len > 8 && !memcmp (domain, "hotmail.", 8)) return true; // "hotmail.com", "hotmail.fr", "hotmail.co.jp", etc
 
     static rom consumer_domains[] = { // except multi-domainers: yahoo, live, hotmail
-        "gmail.com", "googlemail.com", "outlook.com", "protonmail.com", // Global
-        "qq.com", "163.com",               // China 
-        "web.de",                          // Germany 
-        "hanmail.net", "naver.com",        // Korea
-        "list.ru", "mail.ru", "yandex.ru", // Russia 
-        "yaani.com"                        // Turkey
+        "gmail.com", "googlemail.com", "outlook.com", "protonmail.com", "msn.com", 
+        "rediffmail.com", "ymail.com", "icloud.com",   // Global
+        "aol.com", "comcast.net",                      // US
+        "qq.com", "163.com",                           // China 
+        "web.de", "gmx.de",                            // Germany 
+        "wanadoo.fr", "orange.fr", "free.fr",          // France
+        "hanmail.net", "naver.com",                    // Korea
+        "list.ru", "mail.ru", "inbox.ru", "yandex.ru", // Russia 
+        "yaani.com",                                   // Turkey
+        "libero.it",                                   // Italy
+        "uol.com.br", "bol.com.br",                    // Brazil
     };
 
     for (int i=0; i < ARRAY_LEN(consumer_domains); i++)
@@ -299,7 +329,7 @@ static bool license_is_consumer_email (rom email)
     return false;
 }
 
-static bool license_verify_name (char *response, unsigned response_size, rom unused)
+static bool license_verify_name (STRc(response), rom unused)
 {
     if (!strchr (response, ' ')) {
         fprintf (stderr, "Please enter your full name\n");
@@ -309,7 +339,7 @@ static bool license_verify_name (char *response, unsigned response_size, rom unu
     return true;
 }
 
-static bool license_verify_license (char *response, unsigned response_size, rom unused)
+static bool license_verify_license (STRc(response), rom unused)
 {
     return strlen (response) == 1 && (*response=='1' || *response=='2' || *response=='3');
 }
@@ -342,13 +372,13 @@ void license_register (void)
     ASSINP0 (isatty(0) && isatty(2), "Use of Genozip is free for academic purposes, but requires registration. Please run: genozip --register.\n"
                                      "If you are unable to register (for example because this is a batch-job machine) please see: " WEBSITE_USING_ON_HPC);
 
-    rom filename = get_license_filename (true);
+    rom filename = license_get_filename (true);
 
     if (!n_fields) {
 
         fprintf (stderr, "Welcome to Genozip!\n\n"
-                         "- Genozip is a commercial product, however some academic research applications are eligibile for \n"
-                         "  a free Academic License. To check eligibility see: " WEBSITE_GET_GENOZIP "\n\n");
+                         "- Genozip is a commercial product, however it is free for academic research use with some limitations.\n"
+                         "  To check eligibility see: " WEBSITE_GET_GENOZIP "\n\n");
 
         if (file_exists (filename)) 
             license_exit_if_not_confirmed ("You are already registered. Are you sure you want to re-register again?", QDEF_NONE);
@@ -374,27 +404,27 @@ void license_register (void)
     else {
         fprintf (stderr, "\nLicense details -\n");
     
-        str_query_user ("\nInstitution / Company name: ", rec.institution, sizeof(rec.institution), str_verify_not_empty, NULL);
+        str_query_user ("\nInstitution / Company name: ", rec.institution, sizeof(rec.institution), false, NULL, NULL);
 
-        str_query_user ("\nYour name: ", rec.name, sizeof(rec.name), license_verify_name, NULL);
+        str_query_user ("\nYour name: ", rec.name, sizeof(rec.name), false, license_verify_name, NULL);
         
-        str_query_user ("\nYour email address: ", rec.email, sizeof(rec.email), license_verify_email, NULL);
+        str_query_user ("\nYour email address: ", rec.email, sizeof(rec.email), false, license_verify_email, NULL);
         int len = strlen (rec.email);
         
         if (license_is_consumer_email (rec.email) && len < sizeof (rec.email)-20) {
             rec.email[len] = ' ';
             fprintf (stderr, "\nHmm... that looks like a personal email address. Please enter your email address at your institution / company\n");
             
-            str_query_user ("\nYour email address: ",&rec.email[len+1], sizeof(rec.email)-len-1, license_verify_email, NULL);
+            str_query_user ("\nYour email address: ",&rec.email[len+1], sizeof(rec.email)-len-1, false, license_verify_email, NULL);
         }
 
-        str_query_user ("\nWhat type of license do you require?\n\n"
-                        "1. Academic License (free): Free for officially recognized research institutions, but excluding clinical data\n\n"
-                        "2. Evaluation License (free): Free 30-day evaluation\n\n"
+        str_query_user ("\nWhat type of license do you require? (see: " WEBSITE_PRICING_FAQ ")\n\n"
+                        "1. Academic License (free): Free for officially recognized research institutions (excluding data obtained commercially)\n\n"
+                        "2. Evaluation License (free): Free use for 30-day (limited to " EVAL_NUM_FILES_STR " files)\n\n"
                         "3. Standard License (paid): I have already paid for a Standard License\n\n"
                         "Remember your Mom taught you to be honest!\n\n"
                         "Please enter 1, 2 or 3: ",
-                        lic_type, sizeof(lic_type), license_verify_license, NULL);
+                        lic_type, sizeof(lic_type), false, license_verify_license, NULL);
     
         rec.lic_type = lic_type[0] - '0';
     
@@ -454,12 +484,19 @@ void license_register (void)
              "(which is hosted on a Google server) is not accessible. If this problem persists, you can register manually by "
              "sending an email to register@genozip.com - copy & paste the lines between the \"======\" into the email message.\n");
 
-    ASSINP (file_put_data (filename, STRb(license_data), S_IRUSR), 
+    char query[sizeof(rec.email)+64];
+    char code[7] = "";
+    sprintf (query, "\nA 6-digit verification code was emailed to %s. Please enter it: ", rec.email);
+    str_query_user (query, code, sizeof(code), false, license_verify_code, NULL);
+
+    ASSINP (file_put_data (filename, STRb(license_data), S_IRUSR | S_IRGRP), 
             "Failed to write license file %s: %s. If this is unexpected, email "EMAIL_SUPPORT" for help.", filename, strerror (errno));
+
+    counter_reset (filename);
 
     if (!n_fields) {
         fprintf (stderr, "\nA Genozip %s License has been granted.\n\n"
-                         "Documentation: " GENOZIP_URL "\n\n"
+                         "Getting started: " WEBSITE_QUICK_GUIDE "\n\n"
                          "Support: " EMAIL_SUPPORT "\n\n", lic_types[rec.lic_type]);
 
         if (rec.lic_type == LIC_TYPE_ACADEMIC)
@@ -507,7 +544,7 @@ rom license_get_one_line (void)
 
 void license_display (void)
 {
-    rom filename = get_license_filename (false);
+    rom filename = license_get_filename (false);
     static Buffer license_data = {};
     
     if (file_exists (filename) && !flag.force) 
@@ -555,5 +592,74 @@ rom license_print_default_notice (void)
     }
 
     return notice;
+}
+
+void license_one_file_compressed (void)
+{    
+    counter_increment (license_get_filename (false), 1);
+}
+
+#define COUNTER_MAGIC 27
+#define IS_MAGICAL(st) ((st.st_mtim.tv_nsec % 100) == COUNTER_MAGIC)
+#define COUNTER(n) ((n) / 100)
+#define COUNTST(st) COUNTER(st.st_mtim.tv_nsec)
+#define NSEC(counter) ((counter) * 100)
+
+static void counter_reset (rom filename) // must be absolute filename
+{
+#ifdef __linux__
+    if (flag.is_wsl) return; // not supported for WSL as this doesn't work well on NTFS
+
+    struct stat st;
+    if (stat (filename, &st)) return; // fail silently
+
+    utimensat (0/*ignored*/, filename, (const struct timespec[]){ { .tv_nsec = UTIME_OMIT }, 
+                                                                  { .tv_sec  = st.st_mtim.tv_sec,
+                                                                    .tv_nsec = COUNTER_MAGIC  } }, 0); // ignore errors
+#endif
+}
+
+static bool counter_increment (rom filename, long inc /* may be negative*/) // true if successful
+{
+#ifdef __linux__
+    if (flag.is_wsl) return false; // not supported for WSL as this doesn't work well on NTFS
+
+    struct stat st;
+    if (stat (filename, &st) || !IS_MAGICAL(st)) 
+        return false; // fail silently if can't stat or not magical
+
+    if (COUNTST(st) + inc >= COUNTER(1000000000) ||
+        COUNTST(st) + inc < 0) return false; // out of range
+
+    // set nanosecond of mtime to count, ignoring errors
+    int ret = utimensat (0/*ignored*/, filename, (const struct timespec[]){ { .tv_nsec = UTIME_OMIT }, 
+                                                                            { .tv_sec  = st.st_mtim.tv_sec,
+                                                                              .tv_nsec = st.st_mtim.tv_nsec + NSEC(inc) } }, 0); 
+    return ret == 0;
+
+#else
+    return false;
+#endif
+}
+
+static bool counter_has_exceeded (rom filename, uint32_t exceeded_this)
+{
+#ifdef __linux__
+    if (flag.is_wsl) return false; // not supported for WSL as this doesn't work well on NTFS
+
+    struct stat st, st_inc;
+
+    if (stat (filename, &st) || !IS_MAGICAL(st) ||
+        !counter_increment (filename, 1) ||  // increment and decrement to make sure counter works and magic correctness is not just a fluke
+        stat (filename, &st_inc) || !IS_MAGICAL(st_inc) ||
+        COUNTST (st) + 1 != COUNTST (st_inc) ||
+        !counter_increment (filename, -1))
+        return false; // counter doesn't work
+
+    return COUNTST(st) > exceeded_this;
+
+#else
+    return false;
+#endif
 }
 

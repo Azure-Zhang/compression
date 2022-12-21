@@ -21,3 +21,4 @@ extern void license_display (void);
 extern LicenseType license_get_type (void);
 extern bool license_allow_stats (void);
 extern rom license_print_default_notice (void);
+extern void license_one_file_compressed (void);

@@ -1041,6 +1041,9 @@ void flags_update (unsigned num_files, rom *filenames)
          flag.show_aliases || flag.show_txt_contigs || flag.show_gheader || flag.show_recon_plan || flag.show_ref_contigs ||
          (flag.count && !flag.bases) ||
          flag.collect_coverage); // note: this is updated in flags_update_piz_one_file
+
+    flag.no_tip |= flag.quiet || getenv ("GENOZIP_TEST") ||
+                   flag.show_bam || flag.biopsy || flag.biopsy_line.line_i != NO_LINE;
 }
 
 // ZIP: called for each file, after opening txt and z files, but before calling zip_one_file 

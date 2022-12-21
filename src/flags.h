@@ -143,7 +143,7 @@ typedef struct {
     // internal flags set by the system, not the command line
     CompIType zip_comp_i;    // ZIP only: currently zipping component (copied into VBlock.comp_i, FlagsTxtHeader.comp_i, SectionEntFileFormat.comp_i)
     bool debug_top,
-         is_windows, is_mac, is_linux, // set according to OS
+         is_windows, is_mac, is_linux, is_wsl, // set according to OS
          is_lten,            // set according to endianness   
          explicit_out_dt,    // genocat - out txt file data type set explicitly from command line
          aligner_available,  // ZIP: compression requires using the aligner

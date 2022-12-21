@@ -23,6 +23,7 @@
 #include "contigs.h"
 #include "gencomp.h"
 #include "stats.h"
+#include "tip.h"
 
 // Globals
 static VcfVersion vcf_version;
@@ -666,12 +667,12 @@ static bool vcf_inspect_txt_header_zip (BufferP txt_header)
     SAFE_RESTORE;
 
     if (!flag.reference && segconf.vcf_is_gvcf)
-        WARN_ONCE ("Tip: compressing a GVCF file using a reference file can reduce the compressed file's size by 10%%-30%%.\nUse: \"genozip --reference <ref-file> %s\". ref-file may be a FASTA file or a .ref.genozip file.\n",
-                   txt_file->name);
+        TIP ("compressing a GVCF file using a reference file can reduce the compressed file's size by 10%%-30%%.\nUse: \"genozip --reference <ref-file> %s\". ref-file may be a FASTA file or a .ref.genozip file.\n",
+            txt_file->name);
 
     if (!flag.reference && segconf.vcf_illum_gtyping && has_PROBE)
-        WARN_ONCE ("Tip: compressing an Illumina Genotyping VCF file using a reference file can reduce the compressed file's size by 20%%.\nUse: \"genozip --reference <ref-file> %s\". ref-file may be a FASTA file or a .ref.genozip file.\n",
-                   txt_file->name);
+        TIP ("compressing an Illumina Genotyping VCF file using a reference file can reduce the compressed file's size by 20%%.\nUse: \"genozip --reference <ref-file> %s\". ref-file may be a FASTA file or a .ref.genozip file.\n",
+             txt_file->name);
 
     if (chain_is_loaded && !evb->comp_i)
         vcf_tags_populate_tags_from_command_line();

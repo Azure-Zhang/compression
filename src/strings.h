@@ -242,7 +242,8 @@ extern void str_remove_CR_do (uint32_t n_lines, pSTRp(line));
 extern void str_nul_separate_do (STRps(item));
 #define str_nul_separate(name) str_nul_separate_do (n_##name##s, name##s, name##_lens)
 
-extern uint32_t str_remove_whitespace (rom in, uint32_t in_len, char *out);
+extern uint32_t str_remove_whitespace (STRp(in), char *out);
+extern void str_trim (STRe(str));
 
 extern uint32_t str_split_ints_do (STRp(str), uint32_t max_items, char sep, bool exactly, int64_t *items);
 #define str_split_ints(str,str_len,max_items,sep,name,exactly) \
@@ -266,13 +267,10 @@ extern int str_print_text (rom *text, uint32_t num_lines, rom wrapped_line_prefi
                            rom added_header, uint32_t line_width /* 0=calcuate optimal */);
 
 typedef bool (*ResponseVerifier) (STRc(response), rom verifier_param);
-extern void str_query_user (rom query, STRc(response), ResponseVerifier verifier, rom verifier_param);
+extern void str_query_user (rom query, STRc(response), bool allow_empty, ResponseVerifier verifier, rom verifier_param);
 
 typedef enum { QDEF_NONE, QDEF_NO, QDEF_YES } DefAnswerType;
 extern bool str_query_user_yn (rom query, DefAnswerType def_answer);
-
-// ResponseVerifier functions
-extern bool str_verify_not_empty (STRc(response), rom unused);
 
 extern rom my_memrchr (rom str, char c, uint32_t str_len);
 

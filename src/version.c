@@ -49,7 +49,7 @@ void version_background_test_for_newer (void)
     pthread_create (&thread_id, NULL, version_background_test_for_newer_do, NULL); // ignore errors
 }
 
-bool version_print_notice_if_has_newer (void)
+void version_print_notice_if_has_newer (void)
 {
     // case: Genozip finished its work while thread is still running - kill it
     if (thread_running) 
@@ -74,9 +74,7 @@ bool version_print_notice_if_has_newer (void)
                 system ("conda update genozip");
 #endif
         }
-        return true; // printed
+        flag.no_tip = true; // printed - no more tips
     }
-
-    return false; // not printed
 }
 

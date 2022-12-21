@@ -75,6 +75,7 @@ extern bool is_fastq (STRp(header), bool *need_more);
 
 // ZIP Stuff
 extern void fastq_zip_initialize (void);
+extern void fastq_zip_finalize (bool is_last_user_txt_file);
 extern void fastq_zip_init_vb (VBlockP vb);
 extern bool fastq_zip_dts_flag (void);
 COMPRESSOR_CALLBACK (fastq_zip_seq);

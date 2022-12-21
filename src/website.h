@@ -14,6 +14,7 @@
 #define GITHUB_RAW  "https://raw.githubusercontent.com" REPO "/master"
 #define GITHUB_REPO "https://github.com" REPO
 
+#define WEBSITE_QUICK_GUIDE  GENOZIP_URL "/compression"
 #define WEBSITE_COORDS       GENOZIP_URL "/dvcf"
 #define WEBSITE_RENDERING    GENOZIP_URL "/dvcf-rendering" // link in manuscript
 #define WEBSITE_KRAKEN       GENOZIP_URL "/kraken"
@@ -41,6 +42,7 @@
 #define WEBSITE_INSTITUTIONS GENOZIP_URL "/institutions"
 #define WEBSITE_PRICING_FAQ  GENOZIP_URL "/licensing-faq"
 #define WEBSITE_REFERRAL     GENOZIP_URL "/referral-program"
+#define WEBSITE_BUY          GENOZIP_URL "/purchase"
 
 #define EMAIL_SUPPORT  "support@genozip.com"
 #define EMAIL_SALES    "sales@genozip.com"

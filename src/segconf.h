@@ -131,7 +131,8 @@ typedef struct {
     // FASTQ
     FastqLine3Type line3;       // format of line3
     QnameFlavor line3_flavor;   // in case of L3_QF 
-
+    int r1_or_r2;               // in case compression is WITHOUT --pair: our guess of whether this file is R1 or R2
+    
     // FASTA stuff
     bool fasta_has_contigs;     // the sequences in this FASTA represent contigs (as opposed to reads) - in which case we have a FASTA_CONTIG dictionary and RANDOM_ACCESS
     SeqType seq_type;           // nucleotide or protein
