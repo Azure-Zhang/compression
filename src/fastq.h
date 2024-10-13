@@ -92,7 +92,7 @@ COMPRESSOR_CALLBACK(fastq_zip_qual); // used by codec_longr_compress
 extern void fastq_seg_initialize (VBlockP vb);
 extern void fastq_seg_finalize(VBlockP vb);
 extern bool fastq_seg_is_small (ConstVBlockP vb, DictId dict_id);
-extern rom fastq_seg_txt_line(VBlockP vb, rom line_start, uint32_t remaining, bool *has_13);
+extern rom fastq_seg_txt_line(VBlockP vb, rom line_start, uint32_t remaining, bool *has_13, char *no_ref1, char *ref1);
 extern rom fastq_assseg_line (VBlockP vb);
 extern void fastq_seg_pair2_gpos (VBlockP vb, PosType64 pair1_pos, PosType64 pair2_gpos);
 extern void fastq_update_qual_len (VBlockP vb, uint32_t line_i, uint32_t new_len);
@@ -130,6 +130,12 @@ extern void fastq_piz_genozip_header (ConstSectionHeaderGenozipHeaderP header);
     { DT_FASTQ,  ALIAS_DICT, _FASTQ_E1L, _FASTQ_E2L     },  /* each of E1L and E2L *may* have different b250s if lines differ in their EOL, but normally they are both all-the-same, so only the dict of E2L survives, and no b250 sections */
 
 typedef enum { FQ_COMP_R1, FQ_COMP_R2 } FastqComponentType;
+
+/*typedef struct {
+    bool clt;       // 是否进行CLT切分
+} FastqFlags;
+extern FastqFlags flag;
+*/
 #define FASTQ_COMP_NAMES { "FQR1", "FQR2" }
  
 #define FASTQ_SPECIAL { fastq_special_unaligned_SEQ, fastq_special_PAIR2_GPOS, fastq_special_mate_lookup, \

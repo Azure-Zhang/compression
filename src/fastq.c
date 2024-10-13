@@ -40,7 +40,7 @@ unsigned fastq_vb_zip_dl_size (void) { return sizeof (ZipDataLineFASTQ); }
 // TXTFILE stuff
 //-----------------------
 
-static inline bool is_valid_read (rom t[4],      // for textual lines
+static inline bool is_valid_read (rom t[4],      // 检查FASTQ文件中的任一行是否为有效的读取行，for textual lines
                                   uint32_t l[4]) // their lengths
 {
    return l[0] >= 2 && t[0][0] == '@' &&  // DESC line starts with a '@' and is of length at least 2
@@ -68,7 +68,7 @@ bool is_fastq (STRp(header), bool *need_more)
     return true;
 }
 
-bool is_fastq_pair_2 (VBlockP vb)
+bool is_fastq_pair_2 (VBlockP vb)   // 检测第二个FASTQ文件是否与第一个文件形成配对（R1 R2）
 {
     return VB_DT(FASTQ) && VB_FASTQ->pair_vb_i > 0;
 }
@@ -76,7 +76,7 @@ bool is_fastq_pair_2 (VBlockP vb)
 // "pair assisted" is a type pairing in which R1 data is loaded to ctx->localR1/b250R1 and R2 consults with it in seg/recon.
 // An R2 section that is pair-assisted will have FlagsCtx.paired set (note: in v14, due to a bug, R2.SQBITMAP.b250 should have but fails to set this flag)
 #define DNUM(x) (dict_id.num == _FASTQ_##x)
-bool fastq_zip_use_pair_assisted (DictId dict_id, SectionType st)
+bool fastq_zip_use_pair_assisted (DictId dict_id, SectionType st)   //是否使用了辅助配对
 {
     if (ST(LOCAL) && (DNUM(GPOS) || DNUM(STRAND) || DNUM(DEEP)))
         return true;
@@ -98,7 +98,7 @@ bool fastq_zip_use_pair_identical (DictId dict_id)
            DNUM(AUX) || DNUM(E1L) || DNUM (E2L) || DNUM(TOPLEVEL);
 }
 
-// returns the length of the data at the end of vb->txt_data that will not be consumed by this VB is to be passed to the next VB
+// 计算在VB中未被消耗的文本数据长度，并传递给下一个VB块 returns the length of the data at the end of vb->txt_data that will not be consumed by this VB is to be passed to the next VB
 int32_t fastq_unconsumed (VBlockP vb, uint32_t first_i, int32_t *i_out /* in/out */)
 {    
     ASSERT (*i_out >= 0 && *i_out < Ltxt, "*i=%d is out of range [0,%u]", *i_out, Ltxt);
@@ -166,7 +166,7 @@ bool fastq_txtfile_have_enough_lines (VBlockP vb_, uint32_t *unconsumed_len,
     return true;
 }
 
-void fastq_zip_set_txt_header_flags (struct FlagsTxtHeader *f)
+void fastq_zip_set_txt_header_flags (struct FlagsTxtHeader *f)      //设置文本头部的标志
 {
     f->pair = flag.pair;
 }
@@ -175,14 +175,14 @@ void fastq_zip_set_txt_header_flags (struct FlagsTxtHeader *f)
 // ZIP / SEG stuff
 //---------------
 
-void fastq_zip_init_vb (VBlockP vb)
+void fastq_zip_init_vb (VBlockP vb)     //初始化VBlock
 {
     // in case we're optimizing DESC in FASTQ, we need to know the number of lines
     if (flag.optimize_DESC) {
         uint32_t num_lines = str_count_char (STRb(vb->txt_data), '\n');
         ASSERT (num_lines % 4 == 0, "expecting number of txt lines in VB to be a multiple of 4, but found %u", num_lines);
 
-        VB_FASTQ->first_line = txt_file->num_lines + 1;
+        VB_FASTQ->first_line = txt_file->num_lines + 1;     //将该数据块中第一个记录的行号存储在VB_FASTQ->first_line中，并将文本文件的总行数增加相应的记录数
         txt_file->num_lines += num_lines / 4;     // update here instead of in zip_update_txt_counters;
     }
 }
@@ -280,7 +280,7 @@ void fastq_zip_finalize (bool is_last_user_txt_file)
         fastq_deep_zip_finalize();
 }
 
-// called by Compute thread at the beginning of this VB
+// 初始化 called by Compute thread at the beginning of this VB
 void fastq_seg_initialize (VBlockP vb_)
 {
     START_TIMER;
@@ -294,7 +294,7 @@ void fastq_seg_initialize (VBlockP vb_)
         CTX(FASTQ_CONTIG)->flags.store = STORE_INDEX; // since v12
 
     if (flag.aligner_available) {
-        strand_ctx->ltype       = LT_BITMAP;
+        strand_ctx->ltype       = LT_BITMAP;        //上下文将使用位图来存储数据
         gpos_ctx->ltype         = LT_UINT32;
         gpos_ctx->flags.store   = STORE_INT;
         gpos_d_ctx->ltype       = LT_INT16;
@@ -303,10 +303,10 @@ void fastq_seg_initialize (VBlockP vb_)
         bitmap_ctx->ltype     = LT_BITMAP; // implies no_stons
         bitmap_ctx->local_always = true;
 
-        buf_alloc (vb, &bitmap_ctx->local, 1, Ltxt / 4, uint8_t, 0, CTX_TAG_LOCAL); 
+        buf_alloc (vb, &bitmap_ctx->local, 1, Ltxt / 4, uint8_t, 0, CTX_TAG_LOCAL);     //为上下文分配内存
         buf_alloc (vb, &strand_ctx->local, 0, roundup_bits2bytes64 (vb->lines.len), uint8_t, 0, CTX_TAG_LOCAL); 
 
-        for (int i=0; i < 4; i++)
+        for (int i=0; i < 4; i++)       //为seqmis_ctx数组中每个元素的本地缓冲区分配内存空间
             buf_alloc (vb, &seqmis_ctx[i].local, 1, Ltxt / 128, char, 0, CTX_TAG_LOCAL); 
 
         buf_alloc (vb, &gpos_ctx->local, 1, vb->lines.len, uint32_t, CTX_GROWTH, CTX_TAG_LOCAL); 
@@ -379,9 +379,9 @@ void fastq_seg_initialize (VBlockP vb_)
     COPY_TIMER (seg_initialize);
 }
 
-static void fastq_seg_finalize_segconf (VBlockP vb)
+static void fastq_seg_finalize_segconf (VBlockP vb)     //完成 FASTQ 文件的片段配置
 {
-    segconf.longest_seq_len = vb->longest_seq_len;
+    segconf.longest_seq_len = vb->longest_seq_len;  //将当前VBlock中记录的最长序列长度赋给片段配置结构体（segconf）中的相应字段
     segconf.is_long_reads = segconf_is_long_reads();
     
     if (flag.deep) fastq_deep_seg_finalize_segconf (vb->lines.len32);
@@ -548,7 +548,7 @@ void fastq_read_pair_1_data (VBlockP vb_, VBIType pair_vb_i)
 }
 
 // main thread: after reading VB_HEADER and before reading local/b250 sections from z_file
-void fastq_piz_before_read (VBlockP vb)
+void fastq_piz_before_read (VBlockP vb)     //在开始处理之前为读取 FASTQ 文件做准备
 {
     if (writer_am_i_pair_2 (vb->vblock_i, &VB_FASTQ->pair_vb_i)) { // sets pair_vb_i if R2, leaves it 0 if R1
         
@@ -676,7 +676,7 @@ static rom fastq_seg_get_lines (VBlockFASTQP vb, rom line, int32_t remaining,
     }
 
     // get QUAL line
-    rom after = seg_get_next_item (VB, *qual, &remaining, GN_SEP, GN_FORBIDEN, GN_IGNORE, qual_len, NULL, &has_13[3], "QUAL"); 
+    rom after = seg_get_next_item (VB, *qual, &remaining, GN_SEP, GN_FORBIDEN, GN_IGNORE, qual_len, NULL, &has_13[3], "QUAL");
 
     ASSSEG (*qual_len == *seq_len, "Invalid FASTQ file format: sequence_len=%u and quality_len=%u. Expecting them to be the same.\nSEQ = %.*s\nQUAL= %.*s",
             *seq_len, *qual_len, STRf(*seq), STRf(*qual));
@@ -691,7 +691,8 @@ static rom fastq_seg_get_lines (VBlockFASTQP vb, rom line, int32_t remaining,
 // concept: we treat every 4 lines as a "line". the Description/ID is stored in DESC dictionary and segmented to subfields D?ESC.
 // The sequence is stored in SEQ data. In addition, we utilize the TEMPLATE dictionary for metadata on the line, namely
 // the length of the sequence and whether each line has a \r.
-rom fastq_seg_txt_line (VBlockP vb_, rom line_start, uint32_t remaining, bool *has_13)     // index in vb->txt_data where this line starts
+//分割文本行
+rom fastq_seg_txt_line (VBlockP vb_, rom line_start, uint32_t remaining, bool *has_13, char *no_ref1, char *ref1)     // index in vb->txt_data where this line starts
 {
     VBlockFASTQP vb = (VBlockFASTQP)vb_;
 

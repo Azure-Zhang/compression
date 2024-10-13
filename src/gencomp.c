@@ -15,7 +15,7 @@
 #include "zip.h"
 #include "sections.h"
 #include "sam.h"
-#include "fastq.h"
+#include "fasFtq.h"
 #include "codec.h"
 #include "bgzf.h"
 #include "biopsy.h"
@@ -117,16 +117,16 @@ static CompStruct componentsP[MAX_GEN_COMP+1] = {};
 // so the data waits in line until all previous VBs arrive
 static Mutex preabsorb_queue_mutex = {};
 
-typedef struct {
-    uint32_t vblock_i;
-    CompIType comp_i;
-    Buffer txt_data;       // disowned and moved from VB - only if MAIN and has gencomp lines
-    Buffer gencomp_lines;  // - " -
-} PreabsorbEntry;
-static Buffer preabsorb_queue = {}; // a queue of PreabsorbEntry
-#define last_absorbed_vb_i preabsorb_queue.prm32[0]
+ typedef struct {
+     uint32_t vblock_i;
+     CompIType comp_i;
+     Buffer txt_data;       // disowned and moved from VB - only if MAIN and has gencomp lines
+     Buffer gencomp_lines;  // - " -
+ } PreabsorbEntry;
+ static Buffer preabsorb_queue = {}; // a queue of PreabsorbEntry
+ #define last_absorbed_vb_i preabsorb_queue.prm32[0]
 
-#define GC_TXTS_BUF_NAME "queueP.gc_txts"
+ #define GC_TXTS_BUF_NAME "queueP.gc_txts"
 
 // --------------------------------------------------------------------------------------
 // unprotected data is accessed by absorbing threads until absorbing is done, 
@@ -139,7 +139,8 @@ static VBlockP compress_depn_vb = NULL;
 // Seg: adding gencomp lines to vb->gencomp
 //--------------------------------------------------
 
-// ZIP compute thread: store location where this gc line should be inserted    
+// ZIP compute thread: store location where this gc line should be inserted
+//向生成组件的缓冲区中添加一行数据
 void gencomp_seg_add_line (VBlockP vb, CompIType comp_i, STRp(line)/*pointer into txt_data*/)
 {
     ASSERT (line_len <= GENCOMP_MAX_LINE_LEN, "line_len=%u is beyond maximum of %u", line_len, GENCOMP_MAX_LINE_LEN);
@@ -170,6 +171,7 @@ void gencomp_seg_add_line (VBlockP vb, CompIType comp_i, STRp(line)/*pointer int
 //--------------------------------------------------
 
 // true if VB belongs to a generated componentsP
+//确定给定的VB-> FASTQ 还是 SAM/BAM
 bool gencomp_comp_eligible_for_digest (VBlockP vb)
 {
     CompIType comp_i = vb ? vb->comp_i : flag.zip_comp_i;
@@ -180,6 +182,7 @@ bool gencomp_comp_eligible_for_digest (VBlockP vb)
            ((dt == DT_SAM || dt == DT_BAM) && comp_i >= SAM_COMP_FQ00); // works even when vb=NULL
 }
 
+//在调试模式下输出生成组件相关的调试信息
 static void debug_gencomp (rom msg, bool needs_lock)
 {
     if (needs_lock) mutex_lock (gc_protected); 
@@ -463,7 +466,7 @@ static bool gencomp_flush (CompIType comp_i, bool is_final_flush) // final flush
         // OOB: copy data to the buffer we added to the GetQBit queueP - dispatcher will consume it next, so queue
         // normally doesn't grow more than a handful of buffers
         if (gct == GCT_OOB) {
-            buf_alloc (evb, &queueP[gct].gc_txts[buf_i], 0, segconf.vb_size, char, 0, NULL); // allocate to full size of VB so it doesn't need to be realloced
+            buf_alloc (evfb, &queueP[gct].gc_txts[buf_i], 0, segconf.vb_size, char, 0, NULL); // allocate to full size of VB so it doesn't need to be realloced
             buf_copy (evb, &queueP[gct].gc_txts[buf_i], &componentsP[comp_i].txt_data, char, 0, 0, 0);
         }
 
@@ -772,6 +775,7 @@ static void gencomp_prescribe_reread (VBlockP vb)
 }
 
 // main thread: populate vb->txt_data with the next buffer on the out-of-band or DEPN queue
+//获取文本数据
 bool gencomp_get_txt_data (VBlockP vb)
 {
     #define DEBUG_GENCOMP(msg) \

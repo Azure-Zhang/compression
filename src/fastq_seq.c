@@ -201,6 +201,7 @@ bool fastq_piz_get_pair2_is_forward (VBlockP vb)
 }
 
 // called when reconstructing R2, to check if R1 is aligned
+//第一对配对序列是否对齐
 bool fastq_piz_R1_test_aligned (VBlockFASTQP vb)
 {
     declare_seq_contexts;
